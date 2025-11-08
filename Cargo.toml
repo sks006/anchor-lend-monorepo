@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "packages/anchor-lend/programs"
+]
+resolver = "2"

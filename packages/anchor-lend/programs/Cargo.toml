@@ -1,0 +1,13 @@
+[package]
+name = "anchor_lend"
+version = "0.1.0"
+edition = "2021"
+description = "Anchor lending protocol"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "anchor_lend"
+
+[dependencies]
+anchor-lang = "0.32.1"
+anchor-spl = "0.30.1"

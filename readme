@@ -1,0 +1,99 @@
+# anchor-lend-monorepo/
+
+├── 📁 packages/
+
+│   ├── 🦀 anchor-lend/           # On-Chain Anchor Program
+
+│   │   ├── Anchor.toml           # Anchor's main config file
+
+│   │   ├── Cargo.toml            # Rust workspace dependencies
+
+│   │   ├── 📁 programs/
+
+│   │   │       ├── Cargo.toml    # Program dependencies (anchor-lang, anchor-spl)
+
+│   │   │       └── src/
+
+│   │   │           ├── lib.rs    # Main Program: Declares instructions
+
+│   │   │           ├── state.rs  # State Structs (Market, 
+
+UserPosition)
+
+│   │   │           ├── errors.rs # Custom error enums
+
+│   │   │           └── 📁 instructions/
+
+│   │   │               ├── init_market.rs
+
+│   │   │               ├── deposit_collateral.rs
+
+│   │   │               ├── borrow_asset.rs
+
+│   │   │               ├── repay_asset.rs
+
+│   │   │               ├── withdraw_collateral.rs
+
+│   │   │               └── liquidate.rs
+
+│   │   └── 📁 tests/
+
+│   │       └── anchor-lend.test.ts # TypeScript integration tests
+
+│   │
+│   └── ⚛️ react-app/              # Off-Chain React/Next.js Frontend
+
+│       ├── package.json          # Frontend dependencies
+
+│       ├── tsconfig.json         # TypeScript configuration
+
+│       ├── 📁 public/
+
+│       └── 📁 src/
+
+│           ├── 📁 pages/
+
+│           │   ├── _app.tsx      # Main App: Wallet provider wrapper
+
+│           │   ├── index.tsx     # Home Page (Market info, connect)
+
+│           │   └── dashboard.tsx # User's personal dashboard
+
+│           ├── 📁 components/
+
+│           │   ├── layout/
+
+│           │   │   ├── Navbar.tsx
+
+│           │   │   └── Footer.tsx
+
+│           │   ├── WalletConnector.tsx # Reusable connect button
+
+│           │   ├── DepositForm.tsx     # Component for deposit 
+instruction
+
+│           │   ├── BorrowForm.tsx      # Component for borrow instruction
+
+│           │   └── UserPosition.tsx    # Component to display user's PDA data
+
+│           ├── 📁 contexts/
+
+│           │   └── WalletContextProvider.tsx # Solana wallet adapter setup
+
+│           ├── 📁 hooks/
+
+│           │   ├── useAnchorProgram.ts # Hook for getting the program instance
+
+│           │   └── useUserPosition.ts  # Hook to fetch & derive user's PDA
+
+│           └── 📁 lib/
+
+│               ├── anchorClient.ts # Initializes the Anchor program
+
+│               ├── constants.ts    # Program ID, mint addresses
+
+│               └── idl.json        # Copied/linked from the Anchor target
+
+├── package.json                  # Root pnpm/yarn workspace config
+
+└── tsconfig.base.json            # Base TypeScript config for the monorepo
