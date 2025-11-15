@@ -16,7 +16,7 @@ pub struct WithdrawCollateral<'info> {
     // 2. TOKEN FLOW (Source and Destination)
     #[account(mut)]
     pub collateral_vault: Account<'info, TokenAccount>,
-    
+
     #[account(mut)]
     pub user_collateral_token_account: Account<'info, TokenAccount>,
 
@@ -31,41 +31,85 @@ pub struct WithdrawCollateral<'info> {
 
 pub fn withdraw_collateral(ctx: Context<WithdrawCollateral>, amount: u64) -> Result<()> {
     // Check 1: If user has no debt (borrowed_asset == 0), proceed directly to withdrawal.
- let signer_seeds: &[&[u8]] = &[
-    b"market_vault", 
-    ctx.accounts.market.key().as_ref(),
-    &[ctx.bumps.collateral_vault_authority], 
-];
+    let signer_seeds: &[&[u8]] = &[
+        b"market_vault",
+        ctx.accounts.market.key().as_ref(),
+        &[ctx.bumps.collateral_vault_authority],
+    ];
 
-// Start the conditional check
-if ctx.accounts.user_position.borrowed_asset == 0 {
-    
-    // 1. EXECUTE CPI TRANSFER (PDA Signs)
-    anchor_spl::token::transfer(
-        CpiContext::new_with_signer( // <--- Corrected syntax
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::Transfer {
-                from: ctx.accounts.collateral_vault.to_account_info(),
-                to: ctx.accounts.user_collateral_token_account.to_account_info(),
-                authority: ctx.accounts.collateral_vault_authority.to_account_info(),
-            },
-            &[signer_seeds],
-        ),
-        amount,
-    )?; // <-- Correctly end with '?'
-    
-    // 2. LEDGER RULE: Update the state to reflect the withdrawal.
-    // RULE: Withdrawing collateral DECREASES both balances.
-    ctx.accounts.user_position.deposited_collateral -= amount;
-    ctx.accounts.market.total_collateral_deposited -= amount;
-    // 2. LEDGER RULE: Update the state to reflect the withdrawal.
-    // RULE: Withdrawing collateral DECREASES both balances.
-    ctx.accounts.user_position.deposited_collateral -= amount;
-    ctx.accounts.market.total_collateral_deposited -= amount;
-    
-    // We are done with the successful withdrawal
-    return Ok(()); // <-- Exit successfully
-}
+    // Start the conditional check
+    if ctx.accounts.user_position.borrowed_asset == 0 {
+        // 1. EXECUTE CPI TRANSFER (PDA Signs)
+        anchor_spl::token::transfer(
+            CpiContext::new_with_signer(
+                // <--- Corrected syntax
+                ctx.accounts.token_program.to_account_info(),
+                anchor_spl::token::Transfer {
+                    from: ctx.accounts.collateral_vault.to_account_info(),
+                    to: ctx.accounts.user_collateral_token_account.to_account_info(),
+                    authority: ctx.accounts.collateral_vault_authority.to_account_info(),
+                },
+                &[signer_seeds]
+            ),
+            amount
+        )?; // <-- Correctly end with '?'
 
-Ok(())
+        // 2. LEDGER RULE: Update the state to reflect the withdrawal.
+        // RULE: Withdrawing collateral DECREASES both balances.
+        ctx.accounts.user_position.deposited_collateral = ctx.accounts.user_position.deposited_collateral
+            .checked_sub(amount)
+            .unwrap();
+        ctx.accounts.market.total_collateral_deposited = ctx.accounts.market.total_collateral_deposited
+            .checked_sub(amount)
+            .unwrap();
+
+        // We are done with the successful withdrawal
+        return Ok(()); // <-- Exit successfully
+    } else {
+        // 1. Calculate the Remaining Collateral Amount (Safely)
+        let remaining_collateral: u64 = ctx.accounts.user_position.deposited_collateral
+            .checked_sub(amount)
+            .unwrap();
+
+        // 2. Calculate the MAX Allowed Debt (using fixed-point math)
+        let max_debt_allowed: u128 = (remaining_collateral as u128)
+            // HINT 1: Multiply the remaining amount by the collateral factor (as u128)
+            .checked_mul(ctx.accounts.market.collateral_factor as u128)
+            .unwrap()
+            // HINT 2: Descale by dividing by 10^8 (100,000,000)
+            .checked_div(100_000_000)
+            .unwrap();
+        // 3. Check if the current debt exceeds the allowed max debt
+        if (ctx.accounts.user_position.borrowed_asset as u128) > max_debt_allowed {
+            return Err(ErrorCode::LTVExceeded.into());
+        } else {
+            // 4. EXECUTE CPI TRANSFER (PDA Signs)
+            anchor_spl::token::transfer(
+                CpiContext::new_with_signer(
+                    // <--- Corrected syntax
+                    ctx.accounts.token_program.to_account_info(),
+                    anchor_spl::token::Transfer {
+                        from: ctx.accounts.collateral_vault.to_account_info(),
+                        to: ctx.accounts.user_collateral_token_account.to_account_info(),
+                        authority: ctx.accounts.collateral_vault_authority.to_account_info(),
+                    },
+                    &[signer_seeds],
+                ),
+                amount,
+            )?;
+            // 5. LEDGER RULE: Update the state to reflect the withdrawal.
+            // RULE: Withdrawing collateral DECREASES both balances.
+            ctx.accounts.user_position.deposited_collateral = ctx.accounts.user_position.deposited_collateral
+                .checked_sub(amount)
+                .unwrap();
+            ctx.accounts.market.total_collateral_deposited = ctx.accounts.market.total_collateral_deposited
+                .checked_sub(amount)
+                .unwrap();  
+
+        }
+
+
+    }
+
+    Ok(())
 }
